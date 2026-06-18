@@ -434,6 +434,7 @@ dependencies = [
 name = "ovit-tools"
 version = "0.0.0-development"
 dependencies = [
+ "chrono",
  "clap",
  "ovit",
  "prettytable-rs",

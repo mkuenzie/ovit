@@ -7,5 +7,6 @@ edition = "2018"
 [dependencies]
 clap = "2.33.0"
 prettytable-rs = "0.10.0"
+chrono = "0.4"
 ovit = { path = "../ovit" }
 tivo-media-file-system = { path = "../tivo-media-file-system" }

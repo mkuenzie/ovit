@@ -1,8 +1,11 @@
 extern crate clap;
 #[macro_use]
 extern crate prettytable;
+extern crate chrono;
 extern crate ovit;
 extern crate tivo_media_file_system;
+
+mod recordings;
 
 use clap::{App, Arg, SubCommand};
 use prettytable::Table;
@@ -57,6 +60,15 @@ fn main() {
                 .value_name("NUMBER")
                 .help("Sets the INode to lookup")
                 .required(true)))
+        .subcommand(SubCommand::with_name("recordings")
+            .about("List the titles and metadata of all recordings on the drive")
+            .arg(Arg::with_name("INPUT")
+                .help("The drive image to read from")
+                .required(true))
+            .arg(Arg::with_name("scan")
+                .long("scan")
+                .required(false)
+                .help("Scan every inode instead of using the /Recording index (slower but more robust on damaged drives)")))
         .get_matches();
 
     match matches.subcommand() {
@@ -350,6 +362,12 @@ fn main() {
 
                 println!("Entries: {:#?}", entries);
             }
+        }
+        ("recordings", Some(sub_match)) => {
+            let input_path = sub_match.value_of("INPUT").unwrap();
+            let force_scan = sub_match.is_present("scan");
+
+            recordings::run(input_path, force_scan);
         }
         _ => {
             println!("{}", matches.usage());

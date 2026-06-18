@@ -10,5 +10,8 @@ pub use inode::*;
 mod entry;
 pub use entry::*;
 
+mod object;
+pub use object::*;
+
 mod volume;
 pub use volume::*;
