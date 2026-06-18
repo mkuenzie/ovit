@@ -5,6 +5,7 @@ extern crate chrono;
 extern crate ovit;
 extern crate tivo_media_file_system;
 
+mod dumpobj;
 mod recordings;
 
 use clap::{App, Arg, SubCommand};
@@ -69,6 +70,23 @@ fn main() {
                 .long("scan")
                 .required(false)
                 .help("Scan every inode instead of using the /Recording index (slower but more robust on damaged drives)")))
+        .subcommand(SubCommand::with_name("dumpobj")
+            .about("Diagnostic: hex-dump and parse a database object by fsid, or search for one containing a string")
+            .arg(Arg::with_name("INPUT")
+                .help("The drive image to read from")
+                .required(true))
+            .arg(Arg::with_name("fsid")
+                .long("fsid")
+                .value_name("NUMBER")
+                .help("Dump the object stored at this fsid")
+                .takes_value(true)
+                .required(false))
+            .arg(Arg::with_name("find")
+                .long("find")
+                .value_name("STRING")
+                .help("Search every small inode for data containing this string and dump matches")
+                .takes_value(true)
+                .required(false)))
         .get_matches();
 
     match matches.subcommand() {
@@ -368,6 +386,15 @@ fn main() {
             let force_scan = sub_match.is_present("scan");
 
             recordings::run(input_path, force_scan);
+        }
+        ("dumpobj", Some(sub_match)) => {
+            let input_path = sub_match.value_of("INPUT").unwrap();
+            let fsid = sub_match
+                .value_of("fsid")
+                .map(|value| value.parse().expect("fsid must be a number"));
+            let needle = sub_match.value_of("find");
+
+            dumpobj::run(input_path, fsid, needle);
         }
         _ => {
             println!("{}", matches.usage());

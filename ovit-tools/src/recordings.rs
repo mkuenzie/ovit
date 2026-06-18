@@ -177,10 +177,19 @@ fn scan_all_inodes(
     };
 
     let mut scanned: u64 = 0;
+    let mut db_inodes_read: u64 = 0;
+    let mut objects_with_subobjects: u64 = 0;
+    let mut type_histogram: HashMap<u16, u64> = HashMap::new();
     for inode in inodes {
         scanned += 1;
         if scanned % 50_000 == 0 {
-            println!("  ...scanned {} inodes", scanned);
+            println!(
+                "  ...scanned {} inodes ({} db objects read, {} parsed, {} recordings so far)",
+                scanned,
+                db_inodes_read,
+                objects_with_subobjects,
+                recordings.len()
+            );
         }
 
         // Only database objects hold tyDB metadata. Skip everything else —
@@ -201,8 +210,15 @@ fn scan_all_inodes(
         if data.len() < 8 {
             continue;
         }
+        db_inodes_read += 1;
 
         let object = MFSObject::parse(&data);
+        if !object.subobjects.is_empty() {
+            objects_with_subobjects += 1;
+        }
+        for subobject in &object.subobjects {
+            *type_histogram.entry(subobject.obj_type).or_insert(0) += 1;
+        }
 
         if let Some(program) = program_info(&object) {
             programs.insert(inode.fsid, program);
@@ -212,6 +228,19 @@ fn scan_all_inodes(
         }
         if let Some(recording) = recording_from_object(inode.fsid, &object) {
             recordings.push(recording);
+        }
+    }
+
+    println!(
+        "Scan complete: {} inodes, {} Db objects read, {} parsed into subobjects.",
+        scanned, db_inodes_read, objects_with_subobjects
+    );
+    if !type_histogram.is_empty() {
+        let mut types: Vec<(u16, u64)> = type_histogram.into_iter().collect();
+        types.sort_by(|a, b| b.1.cmp(&a.1));
+        println!("Object types seen (obj_type: count):");
+        for (obj_type, count) in types.iter().take(25) {
+            println!("  {:>3}: {}", obj_type, count);
         }
     }
 
