@@ -7,6 +7,7 @@ extern crate tivo_media_file_system;
 
 mod dumpobj;
 mod recordings;
+mod titles;
 
 use clap::{App, Arg, SubCommand};
 use prettytable::Table;
@@ -70,6 +71,15 @@ fn main() {
                 .long("scan")
                 .required(false)
                 .help("Scan every inode instead of using the /Recording index (slower but more robust on damaged drives)")))
+        .subcommand(SubCommand::with_name("titles")
+            .about("List recording titles by scanning the MFS application regions for NowShowing index strings")
+            .arg(Arg::with_name("INPUT")
+                .help("The drive image to read from")
+                .required(true))
+            .arg(Arg::with_name("all")
+                .long("all")
+                .required(false)
+                .help("Scan every MFS partition, including the large media regions (slow)")))
         .subcommand(SubCommand::with_name("dumpobj")
             .about("Diagnostic: hex-dump and parse a database object by fsid, or search for one containing a string")
             .arg(Arg::with_name("INPUT")
@@ -386,6 +396,12 @@ fn main() {
             let force_scan = sub_match.is_present("scan");
 
             recordings::run(input_path, force_scan);
+        }
+        ("titles", Some(sub_match)) => {
+            let input_path = sub_match.value_of("INPUT").unwrap();
+            let scan_all = sub_match.is_present("all");
+
+            titles::run(input_path, scan_all);
         }
         ("dumpobj", Some(sub_match)) => {
             let input_path = sub_match.value_of("INPUT").unwrap();
