@@ -22,7 +22,7 @@ impl MFSZoneType {
             1 => Ok((input, MFSZoneType::Application)),
             2 => Ok((input, MFSZoneType::Media)),
             3 => Ok((input, MFSZoneType::Max)),
-            _ => Err(Err::Error((input, ErrorKind::NoneOf))),
+            _ => Err(Err::Error(nom::error::Error::new(input, ErrorKind::NoneOf))),
         }
     }
 }

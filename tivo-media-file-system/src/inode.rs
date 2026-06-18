@@ -36,7 +36,7 @@ impl MFSINodeType {
             2 => Ok((input, MFSINodeType::Stream)),
             4 => Ok((input, MFSINodeType::Dir)),
             8 => Ok((input, MFSINodeType::Db)),
-            _ => Err(Err::Error((input, ErrorKind::NoneOf))),
+            _ => Err(Err::Error(nom::error::Error::new(input, ErrorKind::NoneOf))),
         }
     }
 }
@@ -247,7 +247,7 @@ impl MFSINode {
 
 fn entries_with_initial_offset(input: &[u8]) -> IResult<&[u8], Vec<MFSEntry>> {
     let (input, _offset) = take(4usize)(input)?;
-    let (input, entries) = fold_many0(MFSEntry::parse, Vec::new(), |mut acc: Vec<_>, item| {
+    let (input, entries) = fold_many0(MFSEntry::parse, Vec::new, |mut acc: Vec<_>, item| {
         acc.push(item);
         acc
     })(input)?;

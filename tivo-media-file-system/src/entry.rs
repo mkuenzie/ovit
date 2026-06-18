@@ -32,13 +32,13 @@ impl MFSEntry {
         let (input, fsid) = be_u32(input)?;
 
         if fsid == 0 {
-            return Err(Err::Error((input, ErrorKind::ParseTo)));
+            return Err(Err::Error(nom::error::Error::new(input, ErrorKind::Verify)));
         }
 
         let (input, length) = be_u8(input)?;
 
         if length == 0 {
-            return Err(Err::Error((input, ErrorKind::ParseTo)));
+            return Err(Err::Error(nom::error::Error::new(input, ErrorKind::Verify)));
         }
 
         let (input, r#type) = MFSINodeType::parse(input)?;

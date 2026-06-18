@@ -15,7 +15,7 @@ fn string(size: usize, input: &[u8]) -> IResult<&[u8], String> {
     let (input, str_bytes) = take(size)(input)?;
     match String::from_utf8(str_bytes.to_vec()) {
         Ok(string) => Ok((input, string.trim_matches(char::from(0)).to_string())),
-        Err(_) => Err(Err::Error((input, ErrorKind::ParseTo))),
+        Err(_) => Err(Err::Error(nom::error::Error::new(input, ErrorKind::Verify))),
     }
 }
 
@@ -92,7 +92,7 @@ impl ApplePartitionMap {
             1,
             64,
             Partition::parse,
-            Vec::new(),
+            Vec::new,
             |mut acc: Vec<Partition>, item| {
                 acc.push(item);
                 acc

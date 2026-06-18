@@ -16,7 +16,7 @@ fn string(input: &[u8]) -> IResult<&[u8], String> {
     let (input, str_bytes) = take(128 as usize)(input)?;
     match String::from_utf8(str_bytes.to_vec()) {
         Ok(string) => Ok((input, string.trim_matches(char::from(0)).to_string())),
-        Err(_) => Err(Err::Error((input, ErrorKind::ParseTo))),
+        Err(_) => Err(Err::Error(nom::error::Error::new(input, ErrorKind::Verify))),
     }
 }
 
