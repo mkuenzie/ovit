@@ -226,3 +226,100 @@ impl MFSSubobject {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const TYPE_INT: u8 = 0 << 6;
+    const TYPE_STRING: u8 = 1 << 6;
+    const TYPE_OBJECT: u8 = 2 << 6;
+
+    fn push_u16(buf: &mut Vec<u8>, value: u16) {
+        buf.extend_from_slice(&value.to_be_bytes());
+    }
+    fn push_u32(buf: &mut Vec<u8>, value: u32) {
+        buf.extend_from_slice(&value.to_be_bytes());
+    }
+
+    fn attribute(eltype: u8, id: u8, data: &[u8]) -> Vec<u8> {
+        let mut attr = Vec::new();
+        attr.push(eltype);
+        attr.push(id);
+        push_u16(&mut attr, (4 + data.len()) as u16);
+        attr.extend_from_slice(data);
+        while attr.len() % 4 != 0 {
+            attr.push(0);
+        }
+        attr
+    }
+
+    fn subobject(obj_type: u16, id: u32, attributes: &[u8]) -> Vec<u8> {
+        let mut subobj = Vec::new();
+        push_u16(&mut subobj, (16 + attributes.len()) as u16); // len
+        push_u16(&mut subobj, 0); // len1
+        push_u16(&mut subobj, obj_type);
+        push_u16(&mut subobj, 0); // flags
+        push_u16(&mut subobj, 0); // fill[0]
+        push_u16(&mut subobj, 0); // fill[1]
+        push_u32(&mut subobj, id);
+        subobj.extend_from_slice(attributes);
+        subobj
+    }
+
+    fn object(subobjects: &[u8]) -> Vec<u8> {
+        let mut buf = Vec::new();
+        push_u32(&mut buf, 0); // fill1
+        push_u32(&mut buf, (8 + subobjects.len()) as u32); // size
+        buf.extend_from_slice(subobjects);
+        buf
+    }
+
+    #[test]
+    fn parses_program_string_and_int_attributes() {
+        let mut attrs = Vec::new();
+        attrs.extend(attribute(TYPE_STRING, 17, b"Star Trek\0")); // Title
+        attrs.extend(attribute(TYPE_INT, 49, &19_000u32.to_be_bytes())); // OriginalAirDate
+
+        let buf = object(&subobject(obj_type::PROGRAM, 42, &attrs));
+        let parsed = MFSObject::parse(&buf);
+
+        let program = parsed
+            .first_of_type(obj_type::PROGRAM)
+            .expect("program subobject present");
+        assert_eq!(program.id, 42);
+        assert_eq!(program.string(17).as_deref(), Some("Star Trek"));
+        assert_eq!(program.int(49), Some(19_000));
+    }
+
+    #[test]
+    fn parses_object_references_across_subobjects() {
+        // A Recording object also carries an inlined Showing subobject that
+        // references the Program by fsid — exactly the shape the recordings
+        // command relies on.
+        let recording = subobject(obj_type::RECORDING, 1, &attribute(TYPE_INT, 54, &123u32.to_be_bytes()));
+
+        let mut program_ref = Vec::new();
+        push_u32(&mut program_ref, 9999); // fsid
+        push_u32(&mut program_ref, 0); // subobj
+        let showing = subobject(obj_type::SHOWING, 2, &attribute(TYPE_OBJECT, 16, &program_ref));
+
+        let mut subobjects = recording;
+        subobjects.extend(showing);
+        let parsed = MFSObject::parse(&object(&subobjects));
+
+        assert!(parsed.has_type(obj_type::RECORDING));
+        let showing = parsed
+            .first_of_type(obj_type::SHOWING)
+            .expect("showing subobject present");
+        assert_eq!(showing.object_fsid(16), Some(9999));
+    }
+
+    #[test]
+    fn tolerates_truncated_and_zero_length_input() {
+        // Must not panic or loop forever on garbage.
+        assert!(MFSObject::parse(&[]).subobjects.is_empty());
+        assert!(MFSObject::parse(&[0, 0, 0, 0]).subobjects.is_empty());
+        assert!(MFSObject::parse(&[0xFF; 20]).subobjects.is_empty());
+    }
+}

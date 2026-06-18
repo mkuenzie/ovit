@@ -17,7 +17,11 @@ use std::collections::HashMap;
 use chrono::{TimeZone, Utc};
 use ovit::TivoDrive;
 use prettytable::{row, Table};
-use tivo_media_file_system::{obj_type, MFSObject};
+use tivo_media_file_system::{obj_type, MFSINodeType, MFSObject};
+
+/// Database objects are small; anything larger is almost certainly not a tyDB
+/// object and we should not pull it into memory while scanning.
+const MAX_OBJECT_SIZE: u32 = 1 << 20;
 
 // Program (obj_type 3) field ids.
 const PROGRAM_TITLE: u8 = 17;
@@ -172,8 +176,21 @@ fn scan_all_inodes(
         }
     };
 
+    let mut scanned: u64 = 0;
     for inode in inodes {
-        if inode.fsid == 0 {
+        scanned += 1;
+        if scanned % 50_000 == 0 {
+            println!("  ...scanned {} inodes", scanned);
+        }
+
+        // Only database objects hold tyDB metadata. Skip everything else —
+        // critically the media Stream inodes, whose data is the multi-gigabyte
+        // MPEG recording and would otherwise be read entirely into memory.
+        if inode.fsid == 0
+            || inode.r#type != MFSINodeType::Db
+            || inode.size == 0
+            || inode.size > MAX_OBJECT_SIZE
+        {
             continue;
         }
 
